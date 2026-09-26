@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Stamp Collection</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stamps">
+<meta name="theme-color" content="#0C1016">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Stamp%20Collection%22%2C%22short_name%22%3A%22Stamps%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230C1016%22%2C%22theme_color%22%3A%22%230C1016%22%7D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+<style>
+:root{--ink:#0C1016;--surface:#131920;--card:#161D26;--stamp-bg:#F4EDD5;--red:#B83028;--red-hi:#D04038;--gold:#C8A84B;--text:#D4C8B4;--muted:#7A6E5E;--border:rgba(200,168,75,0.14);}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{height:100%;}
+body{min-height:100%;background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+.serif{font-family:'Playfair Display',serif;}
+.stamp-card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s,box-shadow .15s;}
+.stamp-card:hover{border-color:rgba(200,168,75,.4);transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.55);}
+.perf-frame{background:var(--stamp-bg);position:relative;}
+.perf-frame::before,.perf-frame::after{content:'';position:absolute;left:0;right:0;height:8px;background-image:radial-gradient(circle,var(--card) 45%,transparent 46%);background-size:12px 8px;background-repeat:repeat-x;z-index:2;}
+.perf-frame::before{top:0;background-position:6px 0;}
+.perf-frame::after{bottom:0;background-position:6px 0;}
+.inp{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(200,168,75,.2);border-radius:8px;padding:9px 12px;font-size:.875rem;color:var(--text);font-family:'Inter',sans-serif;outline:none;transition:border-color .15s;}
+.inp:focus{border-color:var(--gold);}
+.inp::placeholder{color:var(--muted);}
+.pill{padding:6px 14px;border-radius:6px;border:1px solid rgba(200,168,75,.22);color:var(--muted);font-size:.8rem;cursor:pointer;background:transparent;font-family:'Inter',sans-serif;transition:all .15s;}
+.pill:hover{border-color:var(--gold);color:var(--text);}
+.pill.on{background:var(--red);border-color:var(--red);color:#fff;font-weight:600;}
+.b-MNH{background:rgba(34,197,94,.13);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
+.b-MH{background:rgba(96,165,250,.13);color:#7ec8e3;border:1px solid rgba(96,165,250,.3);}
+.b-Used{background:rgba(200,168,75,.12);color:var(--gold);border:1px solid rgba(200,168,75,.3);}
+.lbl{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px;display:block;}
+.spin{width:28px;height:28px;border:2px solid rgba(200,168,75,.2);border-top-color:var(--gold);border-radius:50%;animation:rot .8s linear infinite;}
+@keyframes rot{to{transform:rotate(360deg);}}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--ink);}
+::-webkit-scrollbar-thumb{background:rgba(200,168,75,.3);border-radius:4px;}
+.icon-btn{padding:8px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .15s;}
+.icon-btn:hover{background:rgba(255,255,255,.09);color:var(--text);border-color:rgba(200,168,75,.3);}
+.icon-btn.active{border-color:var(--gold);color:var(--gold);}
+.btn-primary{background:var(--red);color:#fff;font-weight:600;padding:10px 20px;border-radius:8px;border:none;font-family:'Inter',sans-serif;font-size:.875rem;cursor:pointer;transition:background .15s;width:100%;}
+.btn-primary:hover{background:var(--red-hi);}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+.btn-sec{background:rgba(255,255,255,.06);color:var(--text);padding:10px 20px;border-radius:8px;border:1px solid var(--border);font-family:'Inter',sans-serif;font-size:.875rem;cursor:pointer;transition:background .15s;width:100%;}
+.btn-sec:hover{background:rgba(255,255,255,.1);}
+.modal-wrap{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px);background:rgba(0,0,0,.72);}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.7);}
+.tab-btn{padding:8px 16px;border-radius:8px;font-size:.85rem;cursor:pointer;background:transparent;border:none;color:var(--muted);font-family:'Inter',sans-serif;transition:all .15s;}
+.tab-btn.active{background:rgba(200,168,75,.12);color:var(--gold);font-weight:600;}
+.tab-btn:hover:not(.active){color:var(--text);}
+.filter-label{display:inline-flex;cursor:pointer;}
+.filter-label input{display:none;}
+.filter-label input:checked+.pill{background:var(--red);border-color:var(--red);color:#fff;font-weight:600;}
+.review-stamp{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;}
+.review-stamp.excluded{opacity:.4;}
+.album-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:border-color .15s;}
+.album-card:hover{border-color:rgba(200,168,75,.4);}
+.page-thumb{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;transition:border-color .15s;}
+.page-thumb:hover{border-color:rgba(200,168,75,.4);}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header style="position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:var(--surface);border-bottom:1px solid var(--border);">
+  <div style="max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:10px;">
+    <div style="flex-shrink:0;">
+      <div class="serif" style="font-size:1.15rem;color:var(--gold);line-height:1;">Stamp Collection</div>
+      <div id="count-line" style="font-size:.68rem;color:var(--muted);margin-top:1px;">Loading…</div>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;flex-shrink:0;">
+      <button class="tab-btn active" data-tab="collection" onclick="switchTab('collection')">Collection</button>
+      <button class="tab-btn" data-tab="albums" onclick="switchTab('albums')">Albums</button>
+      <button class="tab-btn" data-tab="import" onclick="switchTab('import')">Import</button>
+    </div>
+    <!-- Search (collection only) -->
+    <div id="search-wrap" style="flex:1;min-width:0;">
+      <input id="search" type="text" class="inp" placeholder="Search cat #, year, color…" style="border-radius:8px;">
+    </div>
+    <div style="display:flex;gap:6px;flex-shrink:0;">
+      <button id="filter-btn" class="icon-btn" title="Filters" onclick="toggleFilter()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M7 12h10M10 20h4"/></svg>
+      </button>
+      <button id="admin-btn" class="icon-btn" title="Admin" onclick="openAdminModal()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+      </button>
+    </div>
+  </div>
+  <!-- Filter panel -->
+  <div id="filter-panel" style="display:none;border-top:1px solid var(--border);padding:10px 16px;">
+    <div style="max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:14px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:.72rem;color:var(--muted);">Year</span>
+        <input id="yr-from" type="number" class="inp" placeholder="From" min="1850" max="1991" style="width:76px;padding:5px 8px;font-size:.8rem;">
+        <input id="yr-to"   type="number" class="inp" placeholder="To"   min="1850" max="1991" style="width:76px;padding:5px 8px;font-size:.8rem;">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:.72rem;color:var(--muted);">Condition</span>
+        <label class="filter-label"><input type="checkbox" class="cond-cb" value="MNH"><span class="pill">MNH</span></label>
+        <label class="filter-label"><input type="checkbox" class="cond-cb" value="MH"><span class="pill">MH</span></label>
+        <label class="filter-label"><input type="checkbox" class="cond-cb" value="Used"><span class="pill">Used</span></label>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:.72rem;color:var(--muted);">Perf</span>
+        <label class="filter-label"><input type="checkbox" class="perf-cb" value="Comb"><span class="pill">Comb</span></label>
+        <label class="filter-label"><input type="checkbox" class="perf-cb" value="Line"><span class="pill">Line</span></label>
+        <label class="filter-label"><input type="checkbox" class="perf-cb" value="Imperf"><span class="pill">Imperf</span></label>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:.72rem;color:var(--muted);">Album</span>
+        <input id="album-filter" type="text" class="inp" placeholder="e.g. 1856-1900" style="width:120px;padding:5px 8px;font-size:.8rem;">
+      </div>
+      <button onclick="clearFilters()" style="font-size:.72rem;color:var(--gold);background:none;border:none;cursor:pointer;text-decoration:underline;">Clear</button>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main style="max-width:1200px;margin:0 auto;padding:20px 16px;">
+
+  <!-- COLLECTION TAB -->
+  <div id="tab-collection">
+    <div id="v-loading" style="display:flex;flex-direction:column;align-items:center;padding:80px 20px;gap:16px;">
+      <div class="spin"></div>
+      <span style="color:var(--muted);font-size:.875rem;">Loading collection…</span>
+    </div>
+    <div id="v-empty" style="display:none;text-align:center;padding:80px 20px;">
+      <div style="font-size:3rem;margin-bottom:12px;">📭</div>
+      <div class="serif" style="font-size:1.3rem;margin-bottom:6px;">No stamps yet</div>
+      <p style="color:var(--muted);font-size:.875rem;">Log in as admin to add stamps, or use Import to read an album page.</p>
+    </div>
+    <div id="v-noresults" style="display:none;text-align:center;padding:80px 20px;">
+      <div style="font-size:3rem;margin-bottom:12px;">🔍</div>
+      <div class="serif" style="font-size:1.3rem;margin-bottom:6px;">No matches</div>
+      <p style="color:var(--muted);font-size:.875rem;">Try different keywords or clear the filters.</p>
+    </div>
+    <div id="grid" style="display:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:14px;"></div>
+  </div>
+
+  <!-- ALBUMS TAB -->
+  <div id="tab-albums" style="display:none;">
+    <div id="albums-list-view">
+      <h2 class="serif" style="font-size:1.2rem;color:var(--gold);margin-bottom:16px;">Albums</h2>
+      <div id="albums-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+        <div style="color:var(--muted);font-size:.875rem;grid-column:1/-1;">No album pages registered yet. Use Import to add pages.</div>
+      </div>
+    </div>
+    <div id="album-pages-view" style="display:none;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <button onclick="showAlbumsList()" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:.875rem;">← Albums</button>
+        <h2 class="serif" id="album-pages-title" style="font-size:1.2rem;color:var(--gold);"></h2>
+      </div>
+      <div id="pages-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;"></div>
+    </div>
+  </div>
+
+  <!-- IMPORT TAB -->
+  <div id="tab-import" style="display:none;max-width:640px;">
+    <h2 class="serif" style="font-size:1.2rem;color:var(--gold);margin-bottom:6px;">Import Album Page</h2>
+    <p style="color:var(--muted);font-size:.85rem;margin-bottom:20px;line-height:1.6;">Upload a photo of an album page. Claude will detect each stamp and pre-fill the data. You review and confirm before saving.</p>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <!-- API Key -->
+      <div style="background:rgba(200,168,75,.06);border:1px solid rgba(200,168,75,.2);border-radius:10px;padding:14px;">
+        <span class="lbl">Anthropic API key <span style="color:#f87171;">*</span></span>
+        <div style="display:flex;gap:8px;">
+          <input id="imp-apikey" type="password" class="inp" placeholder="sk-ant-…" oninput="saveApiKey(this.value)" style="flex:1;">
+          <button onclick="toggleKeyVisibility()" style="padding:6px 12px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:.75rem;white-space:nowrap;">Show</button>
+          <button onclick="testApiKey()" style="padding:6px 12px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:.75rem;white-space:nowrap;">Test</button>
+        </div>
+        <p id="key-test-result" style="display:none;font-size:.72rem;margin-top:5px;"></p>
+        <p style="font-size:.72rem;color:var(--muted);margin-top:5px;">Required on your deployed site. Get one at <span style="color:var(--gold);">console.anthropic.com</span></p>
+      </div>
+      <!-- Album name -->
+      <div>
+        <span class="lbl">Album name <span style="color:#f87171;">*</span></span>
+        <input id="imp-album" type="text" class="inp" placeholder="e.g. 1856-1900">
+      </div>
+      <!-- Page number -->
+      <div>
+        <span class="lbl">Page number <span style="color:#f87171;">*</span></span>
+        <input id="imp-page" type="text" class="inp" placeholder="e.g. 01">
+      </div>
+      <!-- Drive link -->
+      <div>
+        <span class="lbl">Google Drive link for this page <span style="color:var(--muted);">(optional — for album browser)</span></span>
+        <input id="imp-drive" type="url" class="inp" placeholder="https://drive.google.com/file/d/…">
+      </div>
+      <!-- File upload -->
+      <div>
+        <span class="lbl">Album page photo <span style="color:#f87171;">*</span></span>
+        <div id="drop-zone" style="border:2px dashed rgba(200,168,75,.3);border-radius:10px;padding:30px;text-align:center;cursor:pointer;transition:border-color .15s;" onclick="document.getElementById('img-input').click()" ondragover="event.preventDefault();this.style.borderColor='var(--gold)'" ondragleave="this.style.borderColor='rgba(200,168,75,.3)'" ondrop="handleDrop(event)">
+          <div style="font-size:2rem;margin-bottom:8px;">📷</div>
+          <p style="color:var(--muted);font-size:.85rem;">Click or drag photo here</p>
+          <input id="img-input" type="file" accept="image/*" style="display:none;" onchange="handleFileSelect(event)">
+        </div>
+        <div id="img-preview-wrap" style="display:none;margin-top:10px;">
+          <img id="img-preview" src="" style="max-width:100%;border-radius:8px;max-height:300px;object-fit:contain;">
+          <button onclick="clearImage()" style="display:block;margin-top:6px;font-size:.75rem;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;">Remove image</button>
+        </div>
+      </div>
+
+      <p id="imp-err" style="display:none;color:#f87171;font-size:.78rem;"></p>
+      <button id="imp-read-btn" class="btn-primary" onclick="readPage()" style="margin-top:4px;">
+        Read stamps with AI
+      </button>
+    </div>
+
+    <!-- Review section -->
+    <div id="review-section" style="display:none;margin-top:28px;padding-top:24px;border-top:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 class="serif" style="font-size:1.1rem;color:var(--gold);">Review detected stamps</h3>
+        <span id="review-count" style="font-size:.78rem;color:var(--muted);"></span>
+      </div>
+      <p style="color:var(--muted);font-size:.8rem;margin-bottom:14px;">Edit any field, uncheck stamps to exclude. Then save all.</p>
+      <div id="review-list"></div>
+      <button id="save-all-btn" class="btn-primary" onclick="saveAllReviewed()" style="margin-top:16px;">Save confirmed stamps</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- DETAIL MODAL -->
+<div id="m-detail" style="display:none;" class="modal-wrap" onclick="if(event.target===this)hide('m-detail')">
+  <div class="modal-box">
+    <div id="d-img-wrap" class="perf-frame" style="min-height:160px;display:flex;align-items:center;justify-content:center;border-radius:16px 16px 0 0;overflow:hidden;">
+      <img id="d-img" src="" alt="" style="max-width:100%;max-height:280px;object-fit:contain;padding:16px 12px;">
+      <div id="d-no-img" style="display:none;font-size:4rem;padding:40px;">📮</div>
+    </div>
+    <div style="padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:12px;">
+        <div>
+          <div id="d-catnum" class="serif" style="font-size:1.5rem;color:var(--gold);"></div>
+          <div id="d-year" style="font-size:.85rem;color:var(--muted);margin-top:2px;"></div>
+        </div>
+        <span id="d-cond" style="padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:600;white-space:nowrap;flex-shrink:0;"></span>
+      </div>
+      <div id="d-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;"></div>
+      <div id="d-notes-wrap" style="display:none;padding-top:12px;border-top:1px solid var(--border);">
+        <span class="lbl">Notes</span>
+        <p id="d-notes" style="font-size:.875rem;line-height:1.6;"></p>
+      </div>
+      <!-- Page image link -->
+      <div id="d-page-wrap" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <span class="lbl">Album page</span>
+        <div id="d-page-img-container" style="margin-top:6px;"></div>
+      </div>
+      <div id="d-admin-actions" style="display:none;display:flex;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+        <button id="d-edit-btn" class="btn-primary" style="flex:1;">Edit</button>
+        <button id="d-del-btn" style="padding:10px 18px;border-radius:8px;background:rgba(185,28,28,.25);border:1px solid rgba(185,28,28,.4);color:#f87171;font-size:.875rem;cursor:pointer;font-family:'Inter',sans-serif;">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN MODAL -->
+<div id="m-admin" style="display:none;" class="modal-wrap" onclick="if(event.target===this)hide('m-admin')">
+  <div class="modal-box" style="max-width:340px;">
+    <div style="padding:24px;">
+      <div id="a-login">
+        <div class="serif" style="font-size:1.1rem;margin-bottom:4px;">Admin login</div>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:14px;">Enter your admin password</p>
+        <input id="a-pw" type="password" class="inp" placeholder="Password" style="margin-bottom:10px;">
+        <p id="a-err" style="display:none;color:#f87171;font-size:.75rem;margin-bottom:10px;">Incorrect password</p>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-sec" style="flex:1;" onclick="hide('m-admin')">Cancel</button>
+          <button id="a-login-btn" class="btn-primary" style="flex:1;">Login</button>
+        </div>
+      </div>
+      <div id="a-panel" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+          <div class="serif" style="font-size:1.1rem;">Admin</div>
+          <button id="a-logout-btn" style="font-size:.75rem;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;">Logout</button>
+        </div>
+        <button id="a-add-btn" class="btn-primary" style="margin-bottom:10px;">+ Add stamp</button>
+        <button class="btn-sec" onclick="hide('m-admin')">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STAMP FORM MODAL -->
+<div id="m-form" style="display:none;" class="modal-wrap" onclick="if(event.target===this)hide('m-form')">
+  <div class="modal-box">
+    <div style="padding:24px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+        <div id="f-title" class="serif" style="font-size:1.1rem;">Add stamp</div>
+        <button onclick="hide('m-form')" style="background:none;border:none;color:var(--muted);cursor:pointer;">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <span class="lbl">Zverev Cat # <span style="color:#f87171;">*</span></span>
+            <input id="f-cat" type="text" class="inp" placeholder="e.g. 110">
+          </div>
+          <div>
+            <span class="lbl">Year <span style="color:#f87171;">*</span></span>
+            <input id="f-year" type="number" class="inp" placeholder="1925" min="1850" max="1991">
+          </div>
+        </div>
+        <div>
+          <span class="lbl">Condition <span style="color:#f87171;">*</span></span>
+          <input type="hidden" id="f-cond">
+          <div style="display:flex;gap:8px;">
+            <button type="button" class="cond-opt pill" data-v="MNH" style="flex:1;">MNH</button>
+            <button type="button" class="cond-opt pill" data-v="MH"  style="flex:1;">MH</button>
+            <button type="button" class="cond-opt pill" data-v="Used" style="flex:1;">Used</button>
+          </div>
+        </div>
+        <div>
+          <span class="lbl">Perforation type</span>
+          <input type="hidden" id="f-perftype">
+          <div style="display:flex;gap:8px;">
+            <button type="button" class="ptype-opt pill" data-v="Comb"   style="flex:1;">Comb</button>
+            <button type="button" class="ptype-opt pill" data-v="Line"   style="flex:1;">Line</button>
+            <button type="button" class="ptype-opt pill" data-v="Imperf" style="flex:1;">Imperf</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <span class="lbl">Perf gauge</span>
+            <input id="f-gauge" type="text" class="inp" placeholder="12¼">
+          </div>
+          <div>
+            <span class="lbl">Quantity <span style="color:#f87171;">*</span></span>
+            <input id="f-qty" type="number" class="inp" value="1" min="1">
+          </div>
+        </div>
+        <div>
+          <span class="lbl">Color (Zverev)</span>
+          <input id="f-color" type="text" class="inp" placeholder="синяя / blue">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <span class="lbl">Album</span>
+            <input id="f-album" type="text" class="inp" placeholder="1856-1900">
+          </div>
+          <div>
+            <span class="lbl">Page</span>
+            <input id="f-page" type="text" class="inp" placeholder="01">
+          </div>
+        </div>
+        <div>
+          <span class="lbl">Notes</span>
+          <textarea id="f-notes" class="inp" rows="2" placeholder="Variety, provenance…" style="resize:vertical;"></textarea>
+        </div>
+      </div>
+      <p id="f-err" style="display:none;color:#f87171;font-size:.78rem;margin-top:10px;"></p>
+      <div style="display:flex;gap:10px;margin-top:18px;">
+        <button class="btn-sec" style="flex:1;" onclick="hide('m-form')">Cancel</button>
+        <button id="f-save-btn" class="btn-primary" style="flex:1;">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM -->
+<div id="m-delete" style="display:none;" class="modal-wrap" onclick="if(event.target===this)hide('m-delete')">
+  <div class="modal-box" style="max-width:320px;">
+    <div style="padding:24px;">
+      <div class="serif" style="font-size:1rem;margin-bottom:8px;">Delete this stamp?</div>
+      <p style="font-size:.875rem;color:var(--muted);margin-bottom:18px;">Cannot be undone.</p>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-sec" style="flex:1;" onclick="hide('m-delete')">Cancel</button>
+        <button id="del-confirm-btn" style="flex:1;padding:10px;border-radius:8px;background:#b91c1c;color:#fff;font-weight:600;border:none;cursor:pointer;font-family:'Inter',sans-serif;font-size:.875rem;">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE VIEWER MODAL -->
+<div id="m-page" style="display:none;" class="modal-wrap" onclick="if(event.target===this)hide('m-page')">
+  <div class="modal-box" style="max-width:800px;">
+    <div style="padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div id="page-viewer-title" class="serif" style="font-size:1rem;color:var(--gold);"></div>
+        <button onclick="hide('m-page')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;">✕</button>
+      </div>
+      <img id="page-viewer-img" src="" style="width:100%;border-radius:8px;object-fit:contain;max-height:75vh;">
+      <div id="page-stamps-list" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// CONFIG — baked in, no need to edit
+// ═══════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyA0BdnUMoXOIPJSRo7T4AUGTu7RQXAQYfA",
+  authDomain:        "stamps-21e60.firebaseapp.com",
+  projectId:         "stamps-21e60",
+  storageBucket:     "stamps-21e60.firebasestorage.app",
+  messagingSenderId: "462971594807",
+  appId:             "1:462971594807:web:a3f174d5e7aa31c4d6b7b2"
+};
+const ADMIN_PASSWORD = "stamps2026";
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let db=null, allStamps=[], shown=[], pages={};
+let isAdmin=false, editId=null, deleteId=null, currentTab='collection';
+let importFileB64=null, importFileType=null, reviewData=[];
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+function init(){
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db=firebase.firestore();
+  db.collection('stamps').orderBy('year').onSnapshot(snap=>{
+    allStamps=snap.docs.map(d=>({id:d.id,...d.data()}));
+    applyFilters();
+    document.getElementById('v-loading').style.display='none';
+  },err=>{console.error(err);document.getElementById('v-loading').style.display='none';});
+  db.collection('pages').onSnapshot(snap=>{
+    pages={};
+    snap.docs.forEach(d=>{pages[d.id]={id:d.id,...d.data()};});
+    if(currentTab==='albums') renderAlbums();
+  });
+}
+
+// ═══════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════
+function switchTab(tab){
+  currentTab=tab;
+  ['collection','albums','import'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=t===tab?'':'none';
+    document.querySelector(`[data-tab="${t}"]`).classList.toggle('active',t===tab);
+  });
+  document.getElementById('search-wrap').style.display=tab==='collection'?'':'none';
+  document.getElementById('filter-btn').style.display=tab==='collection'?'':'none';
+  if(tab==='albums') renderAlbums();
+  if(tab==='import' && !isAdmin){
+    document.getElementById('imp-err').textContent='Admin login required to import.';
+    document.getElementById('imp-err').style.display='block';
+    document.getElementById('imp-read-btn').disabled=true;
+  } else {
+    document.getElementById('imp-err').style.display='none';
+    document.getElementById('imp-read-btn').disabled=false;
+  }
+}
+
+// ═══════════════════════════════════════════
+// COLLECTION — FILTER & RENDER
+// ═══════════════════════════════════════════
+function applyFilters(){
+  const q=document.getElementById('search').value.toLowerCase().trim();
+  const yf=parseInt(document.getElementById('yr-from').value)||0;
+  const yt=parseInt(document.getElementById('yr-to').value)||9999;
+  const conds=[...document.querySelectorAll('.cond-cb:checked')].map(e=>e.value);
+  const perfs=[...document.querySelectorAll('.perf-cb:checked')].map(e=>e.value);
+  const alb=document.getElementById('album-filter').value.toLowerCase().trim();
+  shown=allStamps.filter(s=>{
+    if(q){const h=[s.catNumber,s.year,s.color,s.notes,s.perfType,s.perfGauge,s.condition,s.album,s.page].filter(Boolean).join(' ').toLowerCase();if(!h.includes(q))return false;}
+    if(s.year&&(s.year<yf||s.year>yt))return false;
+    if(conds.length&&!conds.includes(s.condition))return false;
+    if(perfs.length&&!perfs.includes(s.perfType))return false;
+    if(alb&&!(s.album||'').toLowerCase().includes(alb))return false;
+    return true;
+  });
+  renderGrid();
+}
+
+function renderGrid(){
+  const grid=document.getElementById('grid');
+  document.getElementById('v-empty').style.display='none';
+  document.getElementById('v-noresults').style.display='none';
+  grid.style.display='none';
+  const cl=document.getElementById('count-line');
+  if(allStamps.length===0){document.getElementById('v-empty').style.display='block';cl.textContent='0 stamps';return;}
+  if(shown.length===0){document.getElementById('v-noresults').style.display='block';cl.textContent=`0 of ${allStamps.length}`;return;}
+  cl.textContent=shown.length===allStamps.length?`${allStamps.length} stamp${allStamps.length!==1?'s':''}`:`${shown.length} of ${allStamps.length}`;
+  grid.innerHTML=''; grid.style.display='grid';
+  shown.forEach(s=>{
+    const pageKey=s.album&&s.page?`${s.album}-Page${s.page.padStart(2,'0')}`:null;
+    const pageData=pageKey?pages[pageKey]:null;
+    const imgUrl=pageData?driveUrl(pageData.driveLink):null;
+    const bc=condClass(s.condition);
+    const card=document.createElement('div');
+    card.className='stamp-card';
+    card.innerHTML=`
+      <div class="perf-frame" style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+        ${imgUrl?`<img src="${esc(imgUrl)}" alt="" style="width:100%;height:100%;object-fit:contain;padding:12px 8px;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:'' }
+        <div style="${imgUrl?'display:none;':''}width:100%;height:100%;align-items:center;justify-content:center;font-size:2.5rem;">📮</div>
+      </div>
+      <div style="padding:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px;margin-bottom:3px;">
+          <span class="serif" style="font-size:.95rem;color:var(--gold);line-height:1.2;word-break:break-all;">${esc(s.catNumber||'—')}</span>
+          ${(s.quantity||1)>1?`<span style="font-size:.68rem;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:20px;padding:1px 6px;white-space:nowrap;color:var(--muted);flex-shrink:0;">×${s.quantity}</span>`:''}
+        </div>
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:7px;">${s.year||'—'}${s.album?` · ${s.album}`:''}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <span class="${bc}" style="font-size:.68rem;padding:2px 7px;border-radius:20px;font-weight:600;">${esc(s.condition||'—')}</span>
+          ${s.perfType?`<span style="font-size:.68rem;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);">${esc(s.perfType)}</span>`:''}
+        </div>
+      </div>`;
+    card.onclick=()=>openDetail(s);
+    grid.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════
+// DETAIL
+// ═══════════════════════════════════════════
+function openDetail(s){
+  const pageKey=s.album&&s.page?`${s.album}-Page${s.page.padStart(2,'0')}`:null;
+  const pageData=pageKey?pages[pageKey]:null;
+  const imgUrl=pageData?driveUrl(pageData.driveLink):null;
+  const dimg=document.getElementById('d-img');
+  if(imgUrl){dimg.src=imgUrl;dimg.style.display='block';document.getElementById('d-no-img').style.display='none';}
+  else{dimg.style.display='none';document.getElementById('d-no-img').style.display='flex';}
+  document.getElementById('d-catnum').textContent=s.catNumber||'—';
+  document.getElementById('d-year').textContent=s.year||'';
+  const ce=document.getElementById('d-cond');
+  ce.className=condClass(s.condition);
+  ce.style.cssText+=';padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:600;';
+  ce.textContent=s.condition||'—';
+  const rows=[];
+  if(s.color)rows.push(['Color',s.color]);
+  if(s.perfType)rows.push(['Perf type',s.perfType]);
+  if(s.perfGauge)rows.push(['Perf gauge',s.perfGauge]);
+  rows.push(['Quantity',`${s.quantity||1} stamp${(s.quantity||1)>1?'s':''}`]);
+  if(s.album)rows.push(['Album',s.album]);
+  if(s.page)rows.push(['Page',s.page]);
+  document.getElementById('d-fields').innerHTML=rows.map(([l,v])=>`
+    <div style="background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:8px;padding:8px;">
+      <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px;">${l}</div>
+      <div style="font-size:.85rem;font-weight:500;">${esc(String(v))}</div>
+    </div>`).join('');
+  const nw=document.getElementById('d-notes-wrap');
+  if(s.notes){nw.style.display='block';document.getElementById('d-notes').textContent=s.notes;}else nw.style.display='none';
+  // Page image section
+  const pw=document.getElementById('d-page-wrap');
+  if(pageData&&imgUrl){
+    pw.style.display='block';
+    document.getElementById('d-page-img-container').innerHTML=`<img src="${esc(imgUrl)}" style="width:100%;border-radius:6px;cursor:pointer;" onclick="openPageViewer('${esc(pageKey)}')">`;
+  } else pw.style.display='none';
+  const aa=document.getElementById('d-admin-actions');
+  if(isAdmin){
+    aa.style.display='flex';
+    document.getElementById('d-edit-btn').onclick=()=>{hide('m-detail');openEditForm(s);};
+    document.getElementById('d-del-btn').onclick=()=>{hide('m-detail');deleteId=s.id;show('m-delete');};
+  } else aa.style.display='none';
+  show('m-detail');
+}
+
+// ═══════════════════════════════════════════
+// ALBUMS BROWSER
+// ═══════════════════════════════════════════
+function renderAlbums(){
+  const albumMap={};
+  Object.values(pages).forEach(p=>{
+    if(!albumMap[p.album])albumMap[p.album]=[];
+    albumMap[p.album].push(p);
+  });
+  const grid=document.getElementById('albums-grid');
+  const names=Object.keys(albumMap).sort();
+  if(!names.length){
+    grid.innerHTML='<div style="color:var(--muted);font-size:.875rem;grid-column:1/-1;">No album pages registered yet. Use Import to add pages.</div>';
+    return;
+  }
+  grid.innerHTML=names.map(name=>{
+    const pg=albumMap[name];
+    const stampCount=allStamps.filter(s=>s.album===name).length;
+    return `<div class="album-card" onclick="showAlbumPages('${esc(name)}')">
+      <div class="serif" style="font-size:1rem;color:var(--gold);margin-bottom:4px;">${esc(name)}</div>
+      <div style="font-size:.78rem;color:var(--muted);">${pg.length} page${pg.length!==1?'s':''} · ${stampCount} stamp${stampCount!==1?'s':''}</div>
+    </div>`;
+  }).join('');
+}
+
+function showAlbumPages(albumName){
+  document.getElementById('albums-list-view').style.display='none';
+  document.getElementById('album-pages-view').style.display='block';
+  document.getElementById('album-pages-title').textContent=albumName;
+  const albumPages=Object.values(pages).filter(p=>p.album===albumName).sort((a,b)=>a.page.localeCompare(b.page));
+  const grid=document.getElementById('pages-grid');
+  grid.innerHTML=albumPages.map(p=>{
+    const imgUrl=driveUrl(p.driveLink);
+    const key=`${p.album}-Page${p.page.padStart(2,'0')}`;
+    return `<div class="page-thumb" onclick="openPageViewer('${esc(key)}')">
+      ${imgUrl?`<img src="${esc(imgUrl)}" style="width:100%;height:100%;object-fit:cover;">`:
+      `<span style="font-size:1.5rem;">📄</span>`}
+      <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);padding:4px 6px;font-size:.7rem;">Page ${p.page}</div>
+    </div>`;
+  }).join('');
+  // Make page-thumb relative for overlay
+  grid.querySelectorAll('.page-thumb').forEach(t=>t.style.position='relative');
+}
+
+function showAlbumsList(){
+  document.getElementById('albums-list-view').style.display='block';
+  document.getElementById('album-pages-view').style.display='none';
+}
+
+function openPageViewer(pageKey){
+  const p=pages[pageKey];
+  if(!p)return;
+  document.getElementById('page-viewer-title').textContent=`${p.album} — Page ${p.page}`;
+  document.getElementById('page-viewer-img').src=driveUrl(p.driveLink)||'';
+  // List stamps on this page
+  const pageStamps=allStamps.filter(s=>s.album===p.album&&s.page===p.page);
+  document.getElementById('page-stamps-list').innerHTML=pageStamps.map(s=>
+    `<span onclick="hide('m-page');openDetail(allStamps.find(x=>x.id==='${s.id}'))" style="font-size:.75rem;padding:3px 10px;border-radius:20px;background:rgba(200,168,75,.12);border:1px solid var(--border);color:var(--gold);cursor:pointer;">${esc(s.catNumber||'?')}</span>`
+  ).join('');
+  show('m-page');
+}
+
+// ═══════════════════════════════════════════
+// IMPORT
+// ═══════════════════════════════════════════
+function handleFileSelect(e){
+  const file=e.target.files[0];
+  if(file)loadImageFile(file);
+}
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('drop-zone').style.borderColor='rgba(200,168,75,.3)';
+  const file=e.dataTransfer.files[0];
+  if(file&&file.type.startsWith('image/'))loadImageFile(file);
+}
+function loadImageFile(file){
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const result=ev.target.result;
+    importFileB64=result.split(',')[1];
+    importFileType=file.type;
+    document.getElementById('img-preview').src=result;
+    document.getElementById('img-preview-wrap').style.display='block';
+    document.getElementById('drop-zone').style.display='none';
+  };
+  reader.readAsDataURL(file);
+}
+function clearImage(){
+  importFileB64=null;importFileType=null;
+  document.getElementById('img-input').value='';
+  document.getElementById('img-preview-wrap').style.display='none';
+  document.getElementById('drop-zone').style.display='block';
+}
+
+function toggleKeyVisibility(){
+  const inp=document.getElementById('imp-apikey');
+  inp.type=inp.type==='password'?'text':'password';
+}
+async function testApiKey(){
+  const apiKey=document.getElementById('imp-apikey').value.trim();
+  const res=document.getElementById('key-test-result');
+  res.style.display='block'; res.style.color='var(--muted)'; res.textContent='Testing…';
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:10,messages:[{role:'user',content:'Hi'}]})
+    });
+    if(r.ok||r.status===200){res.style.color='#4ade80';res.textContent='✓ API key works!';}
+    else{const d=await r.json();res.style.color='#f87171';res.textContent='✗ Error '+r.status+': '+(d.error?.message||'check key');}
+  }catch(e){res.style.color='#f87171';res.textContent='✗ Connection failed: '+e.message;}
+}
+function saveApiKey(val){try{localStorage.setItem('anthropic_key',val);}catch(e){}}
+function loadApiKey(){try{const k=localStorage.getItem('anthropic_key');if(k)document.getElementById('imp-apikey').value=k;}catch(e){}}
+
+async function resizeImage(b64, type, maxW=1600, maxH=1600){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.width, h=img.height;
+      if(w<=maxW&&h<=maxH){res({b64,type});return;}
+      const scale=Math.min(maxW/w,maxH/h);
+      w=Math.round(w*scale); h=Math.round(h*scale);
+      const c=document.createElement('canvas');
+      c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      const out=c.toDataURL('image/jpeg',0.85);
+      res({b64:out.split(',')[1],type:'image/jpeg'});
+    };
+    img.src=`data:${type};base64,${b64}`;
+  });
+}
+
+async function readPage(){
+  if(!isAdmin){showImpErr('Admin login required.');return;}
+  const apiKey=document.getElementById('imp-apikey').value.trim();
+  if(!apiKey){showImpErr('Anthropic API key required. Get one at console.anthropic.com');return;}
+  const album=document.getElementById('imp-album').value.trim();
+  const page=document.getElementById('imp-page').value.trim();
+  if(!album||!page){showImpErr('Album name and page number are required.');return;}
+  if(!importFileB64){showImpErr('Please select an image first.');return;}
+  document.getElementById('imp-err').style.display='none';
+  const btn=document.getElementById('imp-read-btn');
+  btn.textContent='Reading stamps…';btn.disabled=true;
+  try{
+    const {b64, type:imgType}=await resizeImage(importFileB64, importFileType);
+    const isPreview=window.location.hostname.includes('claude.ai');
+    const hdrs={'Content-Type':'application/json','anthropic-version':'2023-06-01'};
+    if(!isPreview){hdrs['x-api-key']=apiKey;hdrs['anthropic-dangerous-allow-browser']='true';}
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:hdrs,
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:4000,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:imgType,data:b64}},
+          {type:'text',text:`This is an album page of Russian/Soviet postage stamps (1856-1991 collection).
+Examine every stamp visible on this page.
+Return a JSON array — one object per stamp — with these fields:
+- catNumber: Zverev catalogue number if identifiable, otherwise denomination+color e.g. "3k green"
+- year: integer year printed on stamp or best estimate
+- color: Zverev color name if possible, otherwise plain description
+- condition: "MNH", "MH", or "Used" — estimate from appearance
+- perfType: "Comb", "Line", "Imperf", or "" if unclear
+- perfGauge: gauge if a label shows it, otherwise ""
+- quantity: 1
+- notes: any notable observation
+
+Return ONLY valid JSON array. No markdown. No explanation.`}
+        ]}]
+      })
+    });
+    const data=await resp.json();
+    const text=data.content.map(c=>c.text||'').join('');
+    const clean=text.replace(/```json|```/g,'').trim();
+    reviewData=JSON.parse(clean);
+    if(!Array.isArray(reviewData))throw new Error('Not an array');
+    // Save page reference
+    const driveLink=document.getElementById('imp-drive').value.trim();
+    const pageKey=`${album}-Page${page.padStart(2,'0')}`;
+    await db.collection('pages').doc(pageKey).set({album,page,driveLink:driveLink||null,addedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    // Attach album/page to each detected stamp
+    reviewData=reviewData.map(s=>({...s,album,page}));
+    renderReview();
+  }catch(e){
+    console.error('Full error:',e);
+    showImpErr('AI read failed: '+e.message+' ('+e.name+') — check API key and image format (JPEG/PNG only).');
+  }finally{
+    btn.textContent='Read stamps with AI';btn.disabled=false;
+  }
+}
+
+function renderReview(){
+  const list=document.getElementById('review-list');
+  document.getElementById('review-count').textContent=`${reviewData.length} stamp${reviewData.length!==1?'s':''} detected`;
+  list.innerHTML=reviewData.map((s,i)=>`
+    <div class="review-stamp" id="rs-${i}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:.8rem;color:var(--muted);">Stamp ${i+1}</span>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.8rem;color:var(--muted);">
+          <input type="checkbox" class="rs-include" data-i="${i}" checked onchange="document.getElementById('rs-${i}').classList.toggle('excluded',!this.checked)">
+          Include
+        </label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div><span class="lbl">Cat #</span><input class="inp rs-cat" data-i="${i}" value="${esc(s.catNumber||'')}" placeholder="Cat #" style="font-size:.8rem;padding:6px 10px;"></div>
+        <div><span class="lbl">Year</span><input class="inp rs-year" data-i="${i}" type="number" value="${s.year||''}" placeholder="Year" style="font-size:.8rem;padding:6px 10px;"></div>
+        <div><span class="lbl">Condition</span>
+          <select class="inp rs-cond" data-i="${i}" style="font-size:.8rem;padding:6px 10px;">
+            <option value="MNH"${s.condition==='MNH'?' selected':''}>MNH</option>
+            <option value="MH"${s.condition==='MH'?' selected':''}>MH</option>
+            <option value="Used"${s.condition==='Used'?' selected':''}>Used</option>
+          </select>
+        </div>
+        <div><span class="lbl">Perf type</span>
+          <select class="inp rs-perf" data-i="${i}" style="font-size:.8rem;padding:6px 10px;">
+            <option value="">—</option>
+            <option value="Comb"${s.perfType==='Comb'?' selected':''}>Comb</option>
+            <option value="Line"${s.perfType==='Line'?' selected':''}>Line</option>
+            <option value="Imperf"${s.perfType==='Imperf'?' selected':''}>Imperf</option>
+          </select>
+        </div>
+        <div><span class="lbl">Color</span><input class="inp rs-color" data-i="${i}" value="${esc(s.color||'')}" placeholder="Color" style="font-size:.8rem;padding:6px 10px;"></div>
+        <div><span class="lbl">Quantity</span><input class="inp rs-qty" data-i="${i}" type="number" value="${s.quantity||1}" min="1" style="font-size:.8rem;padding:6px 10px;"></div>
+      </div>
+      ${s.notes?`<div style="margin-top:6px;"><span class="lbl">AI note</span><p style="font-size:.75rem;color:var(--muted);">${esc(s.notes)}</p></div>`:''}
+    </div>`).join('');
+  document.getElementById('review-section').style.display='block';
+}
+
+async function saveAllReviewed(){
+  const btn=document.getElementById('save-all-btn');
+  btn.textContent='Saving…';btn.disabled=true;
+  const album=document.getElementById('imp-album').value.trim();
+  const page=document.getElementById('imp-page').value.trim();
+  let saved=0;
+  for(let i=0;i<reviewData.length;i++){
+    const include=document.querySelector(`.rs-include[data-i="${i}"]`)?.checked;
+    if(!include)continue;
+    const data={
+      catNumber:document.querySelector(`.rs-cat[data-i="${i}"]`).value.trim(),
+      year:parseInt(document.querySelector(`.rs-year[data-i="${i}"]`).value)||null,
+      condition:document.querySelector(`.rs-cond[data-i="${i}"]`).value,
+      perfType:document.querySelector(`.rs-perf[data-i="${i}"]`).value||null,
+      color:document.querySelector(`.rs-color[data-i="${i}"]`).value.trim()||null,
+      quantity:parseInt(document.querySelector(`.rs-qty[data-i="${i}"]`).value)||1,
+      album,page,
+      notes:reviewData[i].notes||null,
+      createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    };
+    Object.keys(data).forEach(k=>{if(data[k]===null||data[k]==='')delete data[k];});
+    await db.collection('stamps').add(data);
+    saved++;
+  }
+  btn.textContent='Save confirmed stamps';btn.disabled=false;
+  document.getElementById('review-section').style.display='none';
+  clearImage();
+  ['imp-album','imp-page','imp-drive'].forEach(id=>document.getElementById(id).value='');
+  reviewData=[];
+  alert(`${saved} stamp${saved!==1?'s':''} saved. Switch to Collection to see them.`);
+}
+
+function showImpErr(msg){const e=document.getElementById('imp-err');e.textContent=msg;e.style.display='block';}
+
+// ═══════════════════════════════════════════
+// ADMIN
+// ═══════════════════════════════════════════
+function openAdminModal(){
+  if(isAdmin){document.getElementById('a-login').style.display='none';document.getElementById('a-panel').style.display='block';}
+  else{document.getElementById('a-login').style.display='block';document.getElementById('a-panel').style.display='none';document.getElementById('a-pw').value='';document.getElementById('a-err').style.display='none';}
+  show('m-admin');
+}
+function doLogin(){
+  if(document.getElementById('a-pw').value===ADMIN_PASSWORD){
+    isAdmin=true;document.getElementById('a-err').style.display='none';
+    document.getElementById('a-login').style.display='none';document.getElementById('a-panel').style.display='block';
+    document.getElementById('admin-btn').classList.add('active');renderGrid();
+  }else document.getElementById('a-err').style.display='block';
+}
+function doLogout(){isAdmin=false;document.getElementById('admin-btn').classList.remove('active');hide('m-admin');renderGrid();}
+
+// ═══════════════════════════════════════════
+// FORM
+// ═══════════════════════════════════════════
+function resetForm(){
+  ['f-cat','f-year','f-gauge','f-color','f-album','f-page','f-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-qty').value='1';
+  document.getElementById('f-cond').value='';document.getElementById('f-perftype').value='';
+  document.getElementById('f-err').style.display='none';
+  document.querySelectorAll('.cond-opt,.ptype-opt').forEach(b=>b.classList.remove('on'));
+}
+function openAddForm(){hide('m-admin');editId=null;document.getElementById('f-title').textContent='Add stamp';document.getElementById('f-save-btn').textContent='Save';resetForm();show('m-form');}
+function openEditForm(s){
+  editId=s.id;document.getElementById('f-title').textContent='Edit stamp';document.getElementById('f-save-btn').textContent='Update';resetForm();
+  document.getElementById('f-cat').value=s.catNumber||'';
+  document.getElementById('f-year').value=s.year||'';
+  document.getElementById('f-gauge').value=s.perfGauge||'';
+  document.getElementById('f-color').value=s.color||'';
+  document.getElementById('f-qty').value=s.quantity||1;
+  document.getElementById('f-album').value=s.album||'';
+  document.getElementById('f-page').value=s.page||'';
+  document.getElementById('f-notes').value=s.notes||'';
+  if(s.condition){document.getElementById('f-cond').value=s.condition;document.querySelectorAll('.cond-opt').forEach(b=>b.classList.toggle('on',b.dataset.v===s.condition));}
+  if(s.perfType){document.getElementById('f-perftype').value=s.perfType;document.querySelectorAll('.ptype-opt').forEach(b=>b.classList.toggle('on',b.dataset.v===s.perfType));}
+  show('m-form');
+}
+async function saveStamp(){
+  const catNum=document.getElementById('f-cat').value.trim();
+  const year=parseInt(document.getElementById('f-year').value);
+  const cond=document.getElementById('f-cond').value;
+  const errs=[];
+  if(!catNum)errs.push('Cat # required');if(!year||isNaN(year))errs.push('Year required');if(!cond)errs.push('Condition required');
+  if(errs.length){const e=document.getElementById('f-err');e.textContent=errs.join(' · ');e.style.display='block';return;}
+  const data={catNumber:catNum,year,condition:cond,quantity:parseInt(document.getElementById('f-qty').value)||1,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  const opt=id=>{const v=document.getElementById(id).value.trim();return v||null;};
+  Object.assign(data,{perfType:document.getElementById('f-perftype').value||null,perfGauge:opt('f-gauge'),color:opt('f-color'),album:opt('f-album'),page:opt('f-page'),notes:opt('f-notes')});
+  Object.keys(data).forEach(k=>{if(data[k]===null)delete data[k];});
+  const btn=document.getElementById('f-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  try{
+    if(editId)await db.collection('stamps').doc(editId).update(data);
+    else{data.createdAt=firebase.firestore.FieldValue.serverTimestamp();await db.collection('stamps').add(data);}
+    hide('m-form');
+  }catch(e){const el=document.getElementById('f-err');el.textContent='Error: '+e.message;el.style.display='block';}
+  finally{btn.textContent=editId?'Update':'Save';btn.disabled=false;}
+}
+
+async function doDelete(){
+  if(!deleteId)return;
+  try{await db.collection('stamps').doc(deleteId).delete();hide('m-delete');deleteId=null;}
+  catch(e){alert('Error: '+e.message);}
+}
+
+// ═══════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════
+function driveUrl(url){
+  if(!url)return null;
+  const m=url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if(m)return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  return url;
+}
+function condClass(c){return{MNH:'b-MNH',MH:'b-MH',Used:'b-Used'}[c]||'';}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function show(id){document.getElementById(id).style.display='flex';document.body.style.overflow='hidden';}
+function hide(id){document.getElementById(id).style.display='none';const o=document.querySelectorAll('.modal-wrap:not([style*="none"])');if(!o.length)document.body.style.overflow='';}
+function toggleFilter(){const p=document.getElementById('filter-panel');const open=p.style.display!=='none';p.style.display=open?'none':'block';document.getElementById('filter-btn').classList.toggle('active',!open);}
+function clearFilters(){['yr-from','yr-to','album-filter'].forEach(id=>document.getElementById(id).value='');document.querySelectorAll('.cond-cb,.perf-cb').forEach(cb=>cb.checked=false);applyFilters();}
+
+// ═══════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  init();
+  loadApiKey();
+  document.getElementById('search').addEventListener('input',applyFilters);
+  document.getElementById('yr-from').addEventListener('input',applyFilters);
+  document.getElementById('yr-to').addEventListener('input',applyFilters);
+  document.getElementById('album-filter').addEventListener('input',applyFilters);
+  document.querySelectorAll('.cond-cb,.perf-cb').forEach(cb=>cb.addEventListener('change',applyFilters));
+  document.getElementById('a-login-btn').addEventListener('click',doLogin);
+  document.getElementById('a-pw').addEventListener('keydown',e=>e.key==='Enter'&&doLogin());
+  document.getElementById('a-logout-btn').addEventListener('click',doLogout);
+  document.getElementById('a-add-btn').addEventListener('click',openAddForm);
+  document.getElementById('f-save-btn').addEventListener('click',saveStamp);
+  document.getElementById('del-confirm-btn').addEventListener('click',doDelete);
+  document.querySelectorAll('.cond-opt').forEach(btn=>btn.addEventListener('click',()=>{
+    document.getElementById('f-cond').value=btn.dataset.v;
+    document.querySelectorAll('.cond-opt').forEach(b=>b.classList.toggle('on',b===btn));
+  }));
+  document.querySelectorAll('.ptype-opt').forEach(btn=>btn.addEventListener('click',()=>{
+    const cur=document.getElementById('f-perftype').value;
+    const val=cur===btn.dataset.v?'':btn.dataset.v;
+    document.getElementById('f-perftype').value=val;
+    document.querySelectorAll('.ptype-opt').forEach(b=>b.classList.toggle('on',b.dataset.v===val));
+  }));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')['m-form','m-delete','m-detail','m-admin','m-page'].forEach(hide);});
+  ['m-detail','m-admin','m-form','m-delete','m-page'].forEach(id=>{
+    document.getElementById(id).addEventListener('click',function(e){if(e.target===this)hide(id);});
+  });
+});
+</script>
+</body>
+</html>
