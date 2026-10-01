@@ -667,7 +667,16 @@ function resetForm(){
 }
 function openAddForm(){hide('m-admin');editId=null;document.getElementById('f-title').textContent='Add stamp';document.getElementById('f-save-btn').textContent='Save';resetForm();show('m-form');}
 function openEditForm(s){
-  editId=s.id;document.getElementById('f-title').textContent='Edit stamp';document.getElementById('f-save-btn').textContent='Update';resetForm();
+   editId=s.id;
+  // Show stamp image in form title area
+  const _pk=pageKeyFor(s);
+  const _pd=_pk?pages[_pk]:null;
+  const _iu=_pd?driveUrl(_pd.driveLink):null;
+  const _ft=document.getElementById('f-title');
+  if(_iu){_ft.innerHTML=`<div style="display:flex;align-items:center;gap:10px;"><div style="width:60px;height:60px;border-radius:6px;overflow:hidden;flex-shrink:0;${cropStyle(_iu,s.x1,s.y1,s.x2,s.y2)}"></div><span>Edit stamp</span></div>`;}
+  else{_ft.textContent='Edit stamp';}
+  
+  document.getElementById('f-save-btn').textContent='Update';resetForm();
   document.getElementById('f-cat').value=s.catNumber||'';
   document.getElementById('f-year').value=s.year||'';
   document.getElementById('f-denom').value=s.denomination||'';
